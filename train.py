@@ -241,6 +241,11 @@ def main():
             # loss
             poses, poses_inv = compute_pose_with_inv(pose_net, tgt_img, ref_imgs)
 
+            #print(tgt_img.shape, len(ref_imgs), ref_imgs[0].shape, len(tgt_depth), tgt_depth[0].shape, len(ref_depths), len(ref_depths[0]), ref_depths[0][0].shape)
+            # [4, 3, 256, 832], 2, [4, 3, 256, 832], 4, [4, 1, 256 , 832], 2, 4, [4, 1, 256, 832]
+            print(tgt_depth[0].shape, tgt_depth[1].shape, tgt_depth[2].shape, tgt_depth[3].shape)
+            # [4, 1, 256, 832], [4, 1, 128, 416], [4, 1, 64, 208], [4, 1, 32, 104]
+            #print("pose!", len(poses), poses[0].shape, len(poses_inv), poses_inv[0].shape) # 2, troch.Szie([4,6]), 2, troch.Szie([4,6]) # 2 => t-1, t+1, batch=4, pose =6
             loss_1, loss_3 = compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, ref_depths,
                                                              poses, poses_inv, args.num_scales, args.with_ssim,
                                                              args.with_mask, args.with_auto_mask, args.padding_mode)
@@ -518,6 +523,7 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
             b, h, w = depth.size()
             output_depth = torch.nn.functional.interpolate(output_depth.unsqueeze(1), [h, w]).squeeze(1)
 
+        # for depth metric calculation
         errors.update(compute_errors(depth, output_depth, args.dataset))
 
         # measure elapsed time

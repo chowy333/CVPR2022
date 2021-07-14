@@ -226,20 +226,20 @@ def cam2pixel2(cam_coords, proj_c2p_rot, proj_c2p_tr, padding_mode):
     pixel_coords = torch.stack([X_norm, Y_norm], dim=2)  # [B, H*W, 2]
     return pixel_coords.reshape(b, h, w, 2), Z.reshape(b, 1, h, w)
 
-
+# depth에 대해서 pose 정보를 통해 projection 하고 grip sample을 한거네 ㄹㅇ 단순하게
 def inverse_warp2(img, depth, ref_depth, pose, intrinsics, padding_mode='zeros'):
     """
     Inverse warp a source image to the target image plane.
     Args:
         img: the source image (where to sample pixels) -- [B, 3, H, W]
         depth: depth map of the target image -- [B, 1, H, W]
-        ref_depth: the source depth map (where to sample depth) -- [B, 1, H, W] 
+        ref_depth: the source depth map (where to sample depth) -- [B, 1, H, W]
         pose: 6DoF pose parameters from target to source -- [B, 6]
         intrinsics: camera intrinsic matrix -- [B, 3, 3]
     Returns:
         projected_img: Source image warped to the target image plane
         valid_mask: Float array indicating point validity
-        projected_depth: sampled depth from source image  
+        projected_depth: sampled depth from source image
         computed_depth: computed depth of source image using the target depth
     """
     check_sizes(img, 'img', 'B3HW')
@@ -265,5 +265,6 @@ def inverse_warp2(img, depth, ref_depth, pose, intrinsics, padding_mode='zeros')
     valid_mask = valid_points.unsqueeze(1).float()
 
     projected_depth = F.grid_sample(ref_depth, src_pixel_coords, padding_mode=padding_mode, align_corners=False)
-
+    #print("#####################", src_pixel_coords.shape, projected_img.shape, valid_points.shape)
+    # [4, 256, 832, 2], [4, 3, 256, 832], [4, 256, 832], [4, 1, 256, 832]
     return projected_img, valid_mask, projected_depth, computed_depth

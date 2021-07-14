@@ -52,9 +52,9 @@ def compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, re
     photo_loss = 0
     geometry_loss = 0
 
-    num_scales = min(len(tgt_depth), max_scales)
+    num_scales = min(len(tgt_depth), max_scales) # 1
     for ref_img, ref_depth, pose, pose_inv in zip(ref_imgs, ref_depths, poses, poses_inv):
-        for s in range(num_scales):
+        for s in range(num_scales): # s = 0
 
             # # downsample img
             # b, _, h, w = tgt_depth[s].size()
@@ -93,14 +93,16 @@ def compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, re
 
 
 def compute_pairwise_loss(tgt_img, ref_img, tgt_depth, ref_depth, pose, intrinsic, with_ssim, with_mask, with_auto_mask, padding_mode):
-
+    #valid_mask.shape = [4, 1, 256, 832], projected_img.shape = [4, 3, 256, 832]
     ref_img_warped, valid_mask, projected_depth, computed_depth = inverse_warp2(ref_img, tgt_depth, ref_depth, pose, intrinsic, padding_mode)
 
     diff_img = (tgt_img - ref_img_warped).abs().clamp(0, 1)
 
+    # eq.(5)
     diff_depth = ((computed_depth - projected_depth).abs() / (computed_depth + projected_depth)).clamp(0, 1)
 
-    if with_auto_mask == True:
+    # From here
+    if with_auto_mask == True: # comprinsing True, False, auto_mask [4, 1, 256, 832]
         auto_mask = (diff_img.mean(dim=1, keepdim=True) < (tgt_img - ref_img).abs().mean(dim=1, keepdim=True)).float() * valid_mask
         valid_mask = auto_mask
 
@@ -139,7 +141,7 @@ def compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs):
         mean_disp = disp.mean(2, True).mean(3, True)
         norm_disp = disp / (mean_disp + 1e-7)
         disp = norm_disp
-
+        # except for end of the image, compute gradient with l1 norm
         grad_disp_x = torch.abs(disp[:, :, :, :-1] - disp[:, :, :, 1:])
         grad_disp_y = torch.abs(disp[:, :, :-1, :] - disp[:, :, 1:, :])
 
@@ -150,7 +152,7 @@ def compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs):
         grad_disp_y *= torch.exp(-grad_img_y)
 
         return grad_disp_x.mean() + grad_disp_y.mean()
-
+    #tgt_depth[0].shape = [4, 1, 256 , 832], tgt_img.shape = [4, 3, 256, 832]
     loss = get_smooth_loss(tgt_depth[0], tgt_img)
 
     for ref_depth, ref_img in zip(ref_depths, ref_imgs):
@@ -158,14 +160,14 @@ def compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs):
 
     return loss
 
-
+# for depth metric calculation
 @torch.no_grad()
 def compute_errors(gt, pred, dataset):
     abs_diff, abs_rel, sq_rel, a1, a2, a3 = 0, 0, 0, 0, 0, 0
     batch_size, h, w = gt.size()
 
     '''
-    crop used by Garg ECCV16 to reprocude Eigen NIPS14 results
+    crop used by Garg ECCV16 to reproduce Eigen NIPS14 results
     construct a mask of False values, with the same size as target
     and then set to True values inside the crop
     '''
@@ -203,4 +205,3 @@ def compute_errors(gt, pred, dataset):
         sq_rel += torch.mean(((valid_gt - valid_pred)**2) / valid_gt)
 
     return [metric.item() / batch_size for metric in [abs_diff, abs_rel, sq_rel, a1, a2, a3]]
-
